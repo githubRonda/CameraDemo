@@ -181,7 +181,6 @@ public class IntentPhotoActivity extends Activity implements View.OnClickListene
                 }
                 break;
         }
-
     }
 
 
