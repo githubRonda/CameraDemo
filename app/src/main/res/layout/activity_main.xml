@@ -15,10 +15,33 @@
         />
 
     <Button
-        android:id="@+id/btn_build_camera"
+        android:id="@+id/btn_build_camera1"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Building a camera app"
+        android:text="Building a camera app with SurfaceView"
+        android:textAllCaps="false"
+        />
+
+    <Button
+        android:id="@+id/btn_build_camera2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Building a camera app with GLSurfaceView"
+        android:textAllCaps="false"
+        />
+
+    <Button
+        android:id="@+id/btn_build_camera3"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Building a camera app with TextureView"
+        android:textAllCaps="false"
+        />
+    <Button
+        android:id="@+id/btn_build_camera4"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="直接在布局文件中创建CameraView"
         android:textAllCaps="false"
         />
 

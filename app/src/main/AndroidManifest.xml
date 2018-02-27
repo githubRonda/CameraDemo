@@ -23,11 +23,10 @@
         android:theme="@style/AppTheme">
 
         <!-- android:screenOrientation="landscape" -->
-        <activity android:name=".CameraActivity"/>
+        <activity android:name=".CameraSurfaceViewActivity"/>
         <activity android:name=".IntentPhotoActivity"/>
         <activity
             android:name=".MainActivity"
-            android:label="@string/title_activity_main"
             android:theme="@style/AppTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -35,8 +34,9 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-
-
+        <activity android:name=".CameraTextureViewActivity"/>
+        <activity android:name=".CameraGLSurfaceViewActivity"/>
+        <activity android:name=".CameraViewActivity"/>
 
 
         <!--这里要确保 authorities 和 代码中的 getUriForFile(Context, String, File) 第二个参数要一样-->

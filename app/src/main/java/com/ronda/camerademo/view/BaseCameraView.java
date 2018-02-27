@@ -6,10 +6,8 @@ package com.ronda.camerademo.view;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
+import android.content.res.TypedArray;
 import android.graphics.ImageFormat;
-import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.hardware.Camera;
 import android.media.CamcorderProfile;
@@ -17,13 +15,15 @@ import android.media.MediaRecorder;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Environment;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Display;
 import android.view.MotionEvent;
 import android.view.OrientationEventListener;
 import android.view.Surface;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
+import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.Toast;
@@ -41,137 +41,43 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
-
 /**
- * 此类有助于学习了理解, 过程非常详细
+ * 这个类是 CameraSurfaceView, CameraTextureView, CameraGLSurfaceView 的基类.
+ * 封装的是对 Camera 的一些常用操作(设置方向, 图片大小, 拍照,录像等),
+ * 但是由于预览时 SurfaceView 和 TextureView 的设置方法是不一样的, 而且两者的相关回调方法也是不一样的, 所以这些东西就交由子类来实现
  *
- * 对于大多数Camera的应用, 方向好像是固定为 portrait 或 landscape, 是不支持随着屏幕的旋转而旋转的
- * <p>
- * Building a camera app  步骤
- * 一. Capturing pictures
- * 1. Detect and Access Camera
- * 2. Create a Preview Class (extends SurfaceView and implements the SurfaceHolder interface)
- * 3. Build a Preview Layout
- * 4. Setup Listeners for Capture
- * 5. Capture and Save Files
- * 6. Release the Camera
- * <p>
- * 二. Capturing video
- * Unlike taking pictures with a device camera, capturing video requires a very particular call order.
- * <p>
- * Starting with Android 4.0 (API level 14), the Camera.lock() and Camera.unlock() calls are managed for you automatically.
- * <p>
- * 1. Open Camera
- * 2. Connect Preview
- * 3. Start Preview
- * 4. Start Recording Video
- * - a. Unlock the Camera  - Unlock the camera for use by MediaRecorder by calling Camera.unlock().
- * - b. Configure MediaRecorder ( following are MediaRecorder methods)
- * -- 1. setCamera()
- * -- 2. setAudioSource(MediaRecorder.AudioSource.CAMCORDER)
- * -- 3. setVideoSource(MediaRecorder.VideoSource.CAMERA)
- * -- 4. Set the video output format and encoding. For Android 2.2 (API Level 8) and higher, use the MediaRecorder.setProfile method,
- * --    and get a profile instance using CamcorderProfile.get(). For versions of Android prior to 2.2, you must set the video output format and encoding parameters:
- * ---- 1) setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
- * ---- 2) setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT)
- * ---- 3) setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT)
- * -- 5. setOutputFile()
- * -- 6. setPreviewDisplay()
- * - c. Prepare MediaRecorder
- * - d. Start MediaRecorder
- * 5. Stop Recording Video
- * - a. Stop MediaRecorder
- * - b. Reset MediaRecorder
- * - c. Release MediaRecorder
- * - d. Lock the Camera - Lock the camera so that future MediaRecorder sessions can use it by calling Camera.lock().
- * -    Starting with Android 4.0 (API level 14), this call is not required unless the MediaRecorder.prepare() call fails.
- * 6. Stop the Preview - Camera.stopPreview().
- * 7. Release Camera - Camera.release().
- * <p>
- * <p>
- * 注意：它可以使用MediaRecorder 而不用首先创建一个相机预览，并且跳过这一过程中前几个步骤。然而，由于在开始录制之前用户通常更愿意看到一个预览，这个过程不再这里讨论。
- * 提示：如果您的应用程序通常用于录制视频，以开始预览之前，设置setRecordingHint(boolean)为true 。此设置可以帮助减少需要录制的时间。
- * <p>
- * <p>
- * Camera features:
- * <p>
- * Most camera features can be accessed(接近,获取) and set using the through Camera.Parameters object.
- * However, there are several important features that require more than simple settings in Camera.Parameters. These features are covered in the following sections:
- * * Metering and focus areas (测光和焦点区域)
- * * Face detection (面部检测)
- * * Time lapse video (时间推移视频, 即延迟摄影)
- * <p>
- * 所以, Camera features 分为两类:
- * simple settings (using Camera.Parameters object.)
- * complex settings (上面显示的三个特点)
- * <p>
- * Camera.Parameters对象提供了getSupported ...（） ， is...Supported()或GetMax的...（）方法，以确定是否（以及多大程度上）支持此功能。
- * <p>
- * <p>
- * // get Camera parameters
- * Camera.Parameters params= mCamera.getParameters();
- * // set the focus mode
- * params.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
- * // set Camera parameters
- * mCamera.setParameters(params);
- * <p>
- * 像上面这种形式适用于几乎所有的拍照功能，而且在你获得Camera对象的实例以后大多数参数可以在任何时候改变(注意: 当给params设置好了参数后,一定不要忘了再把params设置给mCamera, 否则不会起效)。
- * 但是注意: 一些摄像功能不能随意更改。尤其是，改变相机预览的大小和方向，您需要先停止预览，再改变预览大小，然后重新启动预览。从Android 4.0（API等级14）开始，预览方向的改变不再需要重新启动预览。
- * <p>
- * 但是对于Metering and focus areas, Face detection, Time lapse video 这些复杂功能的实现, 就需要更多更多的代码, 不能是这么简单的了
- * <p>
- * Camera.Area对象包含两个数据参数：一个 Rect是为指定摄像机视图之内的区域和一个权重值.
- * 在Camera.Area对象中的Rect区域描述一个矩形被映射到一个2000×2000单元格上, 即preview区域, 而且是以中心点为坐标原点的, 向右为x正方向, 向下为y正方向.
- * 这个2000×2000单元格的坐标系统是固定不变的,不会随着图像的缩放级别或预览方向的变化而变化
- * <p>
- * 在您的相机应用程序使用脸部识别功能需要几个基本步骤：(MI4并不好使)
- * 1. 检查设备支持人脸检测（Check that face detection is supported on the device）
- * 2. 创建人脸检测监听器（Create a face detection listener
- * 3. 将人脸检测监听加入到你的Camera对象（Add the face detection listener to your camera object
- * 4. 预览后启动人脸检测（每次预览都要重新启动）（Start face detection after preview (and after every preview restart))
- * While the face detection feature is running, setWhiteBalance(String), setFocusAreas(List<Camera.Area>) and setMeteringAreas(List<Camera.Area>) have no effect.
- * <p>
- * <p>
- * Time lapse video 延迟摄影(其实就是每秒只抓取几帧而已)
- * // Step 3: Set a CamcorderProfile (requires API Level 8 or higher)
- * mMediaRecorder.setProfile(CamcorderProfile.get(CamcorderProfile.QUALITY_TIME_LAPSE_HIGH));
- * ...
- * // Step 5.5: Set the video capture rate to a low number
- * mMediaRecorder.setCaptureRate(0.1); // capture a frame every 10 seconds
- * <p>
- * Camera 一旦调用了release()方法后, 就不能再次使用了, 除非又重新调用 Camera.Open() 方法
- * <p>
- * =====================================================================================================
- * <p>
- * 预览、拍照、自动聚焦、触摸聚焦、连续拍照、照片存储, 预览拉伸问题解决
- * // width, height: [(240, 160),(320, 240),(480, 320),...,(1920, 1080)]
- * List<Camera.Size> supportedPreviewSizes = mCamera.getParameters().getSupportedPreviewSizes();
- * parameters.setPreviewSize(optimalSize.width, optimalSize.height); // 设置预览界面的大小. 经测试, 当SurfaceView大小一样的情况下, PreviewSize 越大预览界面越清晰
- *
- *
- * ----------------------------------------------------
- * SurfaceView 生命周期: surfaceCreated() --> surfaceChanged() --> surfaceDestroyed(). 即使是第一次创建时, 也会走 surfaceChanged() 方法
- *
- * todo 已优化
- * 1. 其实可以把  surfaceCreated() 和 surfaceChanged() 中 startPreview 和 stopPreview 的逻辑封装成对应的方法
- * 2. 可以向上抽取封装一个类, 然后派生 SurfaceView, TextureView, GLSurfaceView 三个子类
+ * 实际开发中一般只会使用到其中一种, 所以封装成类似 CameraPreview 这种形式即可.
  */
+public abstract class BaseCameraView extends FrameLayout {
 
-public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback {
-
-    private static final String TAG = CameraPreview.class.getSimpleName();
+    public static final String TAG = BaseCameraView.class.getSimpleName();
 
     public static final int MEDIA_TYPE_IMAGE = 1;
     public static final int MEDIA_TYPE_VIDEO = 2;
 
-    private SurfaceHolder mHolder;
-    private Camera mCamera;
-    private int mCameraId;
-    private Context mContext;
-    private MediaRecorder mMediaRecorder;
+    protected Camera mCamera;
+    protected int mCameraId;
+    protected Context mContext;
+    protected MediaRecorder mMediaRecorder;
 
-    public CameraPreview(Context context, int cameraId) {
+    public BaseCameraView(@NonNull Context context, @Nullable AttributeSet attrs) {
+        super(context, attrs);
+
+        TypedArray ta = context.obtainStyledAttributes(attrs, R.styleable.BaseCameraView);
+        int cameraId = ta.getInt(R.styleable.BaseCameraView_camera_id, 0);
+        ta.recycle();
+
+        Log.d("Liu", "cameraId = " + cameraId);
+
+        init(context, cameraId);
+    }
+
+    public BaseCameraView(Context context, int cameraId) {
         super(context);
+        init(context, cameraId);
+    }
+
+    private void init(Context context, int cameraId) {
         this.mContext = context;
         this.mCameraId = cameraId;
 
@@ -179,108 +85,19 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
         isSupportAutoFocus = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_AUTOFOCUS);
 
-        // Install a SurfaceHolder.Callback so we get notified when the
-        // underlying surface is created and destroyed.
-        mHolder = getHolder();
-        mHolder.addCallback(this);
-
-        //兼容android 3.0以下的API
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
-            // deprecated setting, but required on Android versions prior to 3.0
-            mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-        }
+        addView(onCreateCameraView(context));
     }
 
-    @Override
-    public void surfaceCreated(SurfaceHolder holder) {
-
-        Log.d(TAG, "surfaceCreated");
-
-        // The Surface has been created, now tell the camera where to draw the preview.
-        try {
-            //Camera.Parameters parameters = mCamera.getParameters();
-            // 所有的View 和 SurfaceHolder 中都有 setKeepScreenOn() 这个方法
-            setKeepScreenOn(true);
-            if (mCamera == null) {
-                mCamera = getCameraInstance(mCameraId);
-            }
-
-            mCamera.setPreviewDisplay(holder);
-            mCamera.startPreview();
-
-            //startFaceDetection();// start face detection feature
-        } catch (IOException e) {
-            Log.d(TAG, "Error setting camera preview: " + e.getMessage());
-            releaseCamera(); // 若预览失败,则释放Camera
-        }
-    }
 
     /**
-     * 当要改变sufaceView 的size 或者 rotation 或者 Image or Video的格式时, 必须要先停止预览, 设置好这些参数后, 再启动预览
+     * 因为子类可能使用 SurfaceView, GLSurfaceView, TextureView等, 所以交由子类来创建对应的View
      */
-    @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
-        Log.d(TAG, "surfaceChanged --> format: " + format + ", w: " + w + ", h:" + h);
+    protected abstract View onCreateCameraView(Context context) ;
 
-        // If your preview can change or rotate, take care of those events here.
-        // Make sure to stop the preview before resizing or reformatting it.
-
-        if (mHolder.getSurface() == null) {
-            // preview surface does not exist
-            Log.d(TAG, "mHolder.getSurface() == null");
-            return;
-        }
-
-        // stop preview before making changes
-        try {
-            mCamera.stopPreview();
-        } catch (Exception e) {
-            // ignore: tried to stop a non-existent preview
-            Log.d(TAG, "Error stopping camera preview: " + e.getMessage());
-        }
-
-        // set preview size and make any resize, rotate or reformatting(格式变化) changes here
-        /**
-         * When setting preview size, you must use values from Camera.Parameters.getSupportedPreviewSizes().Do
-         * not set arbitrary values in the Camera.Parameters.setPreviewSize() method.
-         *
-         * you can also use the setDisplayOrientation() method to set the rotation of the preview image
-         */
-        //...
-        setOptimalPreviewSize(w, h);
-
-        setCameraPictureSize();
-
-        setCorrectCameraOrientation(mCamera);
-
-        requestLayout();
-
-        // start preview with new settings
-        try {
-            mCamera.setPreviewDisplay(mHolder); // 这句一般可以不要, 因为 mCamera 和 mHolder 一般不会改变
-
-            // Important: Call startPreview() to start updating the preview surface.
-            // Preview must be started before you can take a picture.
-            mCamera.startPreview();
-
-            //startFaceDetection();// re-start face detection feature
-
-        } catch (Exception e) {
-            // ignore: tried to stop a non-existent preview
-            Log.d(TAG, "Error starting camera preview: " + e.getMessage());
-        }
-
-
-    }
-
-
-    @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
-        Log.d(TAG, "surfaceDestroyed");
-
-        // Surface will be destroyed when we return, so stop the preview.
-        stopPreviewAndReleaseCamera();
-    }
+    /**
+     * 开始预览功能需由子类实现, 因为: SurfaceView 中是使用 mCamera.setPreviewDisplay(), 而 TextureView 和 GLSurfaceView中使用 mCamera.setPreviewTexture()
+     */
+    public abstract void startPreview();
 
 
     @Override
@@ -310,15 +127,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
             List<Camera.Size> mSupportedPreviewSizes = mCamera.getParameters().getSupportedPreviewSizes();
             requestLayout();
 
-            try {
-                mCamera.setPreviewDisplay(mHolder);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            // Important: Call startPreview() to start updating the preview
-            // surface. Preview must be started before you can take a picture.
-            mCamera.startPreview();
+            startPreview(); // set camera id
         }
     }
 
@@ -326,7 +135,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
     /**
      * 设置拍照的图片的大小和质量. 在surfaceCreated 和 surfaceChanged 时调用
      */
-    private void setCameraPictureSize() {
+    protected void setCameraPictureSize() {
         int setFixPictureWidth = 0; // 设置最适合当前手机的图片宽度
         int setFixPictureHeight = 0; // 设置当前最适合的图片高度
         int maxPictureSize = 8000000; // 设置一个固定的最大尺寸
@@ -363,7 +172,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
      * <p>
      * 若是不设置 previewSize 的话, 会自动选择一个默认值, 华为手机中测试默认值: 横竖屏均为:width: 640, height: 480.
      */
-    private void setOptimalPreviewSize(int w, int h) {
+    protected void setOptimalPreviewSize(int w, int h) {
 
         Camera.Parameters parameters = mCamera.getParameters();
         List<Camera.Size> sizes = parameters.getSupportedPreviewSizes();
@@ -416,7 +225,18 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
         parameters.setPreviewSize(optimalSize.width, optimalSize.height); // 设置预览界面的大小. 经测试, 当SurfaceView大小一样的情况下, PreviewSize 越大预览界面越清晰
         mCamera.setParameters(parameters); // 要重新设置一下, 否者上面的parameters的参数设置是不会生效的
 
-        this.setLayoutParams(new FrameLayout.LayoutParams(optimalSize.width, optimalSize.height)); // 当size改变的时候, 会重新回调 surfaceChanage() 方法
+        final LayoutParams layoutParams = new LayoutParams(optimalSize.width, optimalSize.height);
+        // 刚开始测试时没有问题的, 后来报了一个错误ViewRootImpl$CalledFromWrongThreadException后, 就一直报这个错, 退出重进也不行. 所以只好把setLayoutParams() 放到View.post()中保证一定在主线程中执行
+        post(new Runnable() {
+            @Override
+            public void run() {
+                Log.d("Liu", "ThreadId: " + Thread.currentThread().getId()); //ThreadId: 1
+                // android.view.ViewRootImpl$CalledFromWrongThreadException: Only the original thread that created a view hierarchy can touch its views.
+                BaseCameraView.this.setLayoutParams(layoutParams); // 当size改变的时候, 会重新回调 surfaceChanage() 方法
+            }
+        });
+        Log.d("Liu", "ThreadId1: " + Thread.currentThread().getId()); //ThreadId1: 12319
+
 
         Camera.Size previewSize = mCamera.getParameters().getPreviewSize();
         Log.e(TAG, "当前 previewSize 预览界面的大小: width: " + previewSize.width + ", height: " + previewSize.height);//横竖屏均为:width: 640, height: 480, 感觉一直都不变
@@ -427,7 +247,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
      *
      * @param camera
      */
-    private void setCorrectCameraOrientation(Camera camera) {
+    protected void setCorrectCameraOrientation(Camera camera) {
 
         Camera.CameraInfo camInfo = new Camera.CameraInfo();
         Camera.getCameraInfo(getBackFacingCameraId(), camInfo);
@@ -471,7 +291,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
      *
      * @return
      */
-    private int getBackFacingCameraId() {
+    public int getBackFacingCameraId() {
         int cameraId = -1;
         // Search for the front facing camera
         int numberOfCameras = Camera.getNumberOfCameras();
@@ -549,7 +369,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
     }
 
     //shutter: 快门,百叶窗
-    private Camera.ShutterCallback shutterCallback = new Camera.ShutterCallback() {
+    protected Camera.ShutterCallback shutterCallback = new Camera.ShutterCallback() {
         @Override
         public void onShutter() {
             // 可以在这里播放一个拍照的音频
@@ -557,7 +377,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
         }
     };
 
-    private Camera.PictureCallback rawPictureCallback = new Camera.PictureCallback() {
+    protected Camera.PictureCallback rawPictureCallback = new Camera.PictureCallback() {
 
         /**
          * @param data 这个data是未经过压缩的原始的图片数据, 比mPictureCallback回调中的data要大
@@ -568,7 +388,8 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
         }
     };
-    private Camera.PictureCallback mPictureCallback = new Camera.PictureCallback() {
+
+    protected Camera.PictureCallback mPictureCallback = new Camera.PictureCallback() {
 
         @Override
         public void onPictureTaken(byte[] data, Camera camera) {
@@ -637,7 +458,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
     /**
      * Create a File for saving an image or video
      */
-    private File getOutputMediaFile(int type) {
+    protected File getOutputMediaFile(int type) {
         // To be safe, you should check that the SDCard is mounted
         // using Environment.getExternalStorageState() before doing this.
 
@@ -665,7 +486,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
         if (type == MEDIA_TYPE_IMAGE) {
             mediaFile = new File(mediaStorageDir.getPath() + File.separator + "IMG_" + timeStamp + ".jpg");
         } else if (type == MEDIA_TYPE_VIDEO) {
-            mediaFile = new File(mediaStorageDir.getPath() + File.separator + "VID_" + timeStamp + ".mp4");// 录制视频时必须要创建一个空文件, 方便数据写入;否则录制视频会失败
+            mediaFile = new File(mediaStorageDir.getPath() + File.separator + "VID_" + timeStamp + ".mp4");
         } else {
             return null;
         }
@@ -677,7 +498,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
     /**
      * When this function returns, mCamera will be null.
      */
-    private void stopPreviewAndReleaseCamera() {
+    public void stopPreviewAndReleaseCamera() {
 
         stopPreview();
 
@@ -688,7 +509,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
     }
 
-    private void stopPreview() {
+    public void stopPreview() {
         if (mCamera != null) {
             // Call stopPreview() to stop updating the preview surface.
             mCamera.stopPreview();
@@ -698,7 +519,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
     /**
      * 释放Camera
      */
-    private void releaseCamera() {
+    public void releaseCamera() {
         if (mCamera != null) {
             mCamera.release();        // release the camera for other applications
             mCamera = null;
@@ -748,7 +569,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
     /**
      * A safe way to get an instance of the Camera object.
-     *
+     * <p>
      * 在有些博客中有看到过, 把 Camera.open() 放到子线程中执行. 可能是认为打开一个耗时相对较长, 会阻塞其他操作
      */
     public static Camera getCameraInstance(int cameraId) {
@@ -810,12 +631,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
      */
     public boolean prepareVideoRecorder() {
 
-        if (mMediaRecorder == null){
-            mMediaRecorder = new MediaRecorder();
-        }
-        else{
-            mMediaRecorder.reset();
-        }
+        mMediaRecorder = new MediaRecorder();
 
         // Step 1: Unlock and set camera to MediaRecorder
         mCamera.unlock();
@@ -851,13 +667,11 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
         mMediaRecorder.setOutputFile(getOutputMediaFile(MEDIA_TYPE_VIDEO).toString());
         // Step 4.1: Set recording length
         // mMediaRecorder.setMaxDuration(10000);
-         mMediaRecorder.setOrientationHint(270);
-        //mMediaRecorder.setOnInfoListener(this);
-        //mMediaRecorder.setOnErrorListener(this);
+        // mMediaRecorder.setOrientationHint(270);
 
         // Step 5: Set the preview output
-        //todo 这个录制预览设置只要前面有设置过 mCamera.setPreviewDisplay(holder); mCamera.startPreview(); 并且后面没有调用 mCamera.stopPreview() 下面这个设置可以省略
-        mMediaRecorder.setPreviewDisplay(getHolder().getSurface());
+        // 测试时,发现无论是对于SurfaceView 还是 TextureView 亦或者 GLSurfaceView 都可以不用设置,录像时也是可以预览的. 估计是录像时没有关闭先前的预览的缘故
+        // mMediaRecorder.setPreviewDisplay(getHolder().getSurface());
 
         // Step 6: Prepare configured MediaRecorder
         try {

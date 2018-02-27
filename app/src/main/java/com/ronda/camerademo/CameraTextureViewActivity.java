@@ -8,18 +8,20 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 
+import com.ronda.camerademo.view.BaseCameraView;
 import com.ronda.camerademo.view.CameraPreview;
+import com.ronda.camerademo.view.CameraTextureView;
 
 
 /**
  * Created by Ronda on 2017/12/16.
  */
 
-public class CameraActivity extends AppCompatActivity {
-    private static final String TAG = CameraActivity.class.getSimpleName();
+public class CameraTextureViewActivity extends AppCompatActivity {
+    private static final String TAG = CameraTextureViewActivity.class.getSimpleName();
 
     private FrameLayout mFlContainer;
-    private CameraPreview mCameraPreview;
+    private BaseCameraView mCameraView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,14 +37,14 @@ public class CameraActivity extends AppCompatActivity {
             return;
         }
 
-        mCameraPreview = new CameraPreview(this, 0);
+        mCameraView = new CameraTextureView(this, 0);
 
         mFlContainer = (FrameLayout) findViewById(R.id.camera_preview);
-        mFlContainer.addView(mCameraPreview, 0);
+        mFlContainer.addView(mCameraView, 0);
         findViewById(R.id.btn_image_capture).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mCameraPreview.takePicture();
+                mCameraView.takePicture();
             }
 
         });
@@ -51,14 +53,14 @@ public class CameraActivity extends AppCompatActivity {
         findViewById(R.id.btn_focus).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mCameraPreview.reAutoFocus();
+                mCameraView.reAutoFocus();
             }
         });
 
         findViewById(R.id.btn2).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mCameraPreview.toggleVideoRecorder();
+                mCameraView.toggleVideoRecorder();
             }
         });
 
