@@ -4,7 +4,7 @@
 
 效果图:
 
-![](ScreenShots/p1.png)
+![](ScreenShots/p0.png)
 ![](ScreenShots/p2.png)
 ![](ScreenShots/p3.png)
 
@@ -87,8 +87,8 @@
 
 
 
-
 ## 自定义Camera配置进行拍照和录像
+** Demo 中包含 SurfaceView, GLSurfaceView, TextureView 三种用法**
 
 	/**
 	 * 对于大多数Camera的应用, 方向好像是固定为 portrait 或 landscape, 是不支持随着屏幕的旋转而旋转的
